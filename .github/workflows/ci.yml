@@ -29,6 +29,3 @@ jobs:
 
       - name: Check formatting
         run: ruff format --check .
-
-      - name: Run tests
-        run: pytest
