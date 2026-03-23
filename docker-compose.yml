@@ -1,0 +1,146 @@
+services:
+  auth_db:
+    image: postgres:16
+    container_name: auth_db_container
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    volumes:
+      - auth_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  catalog_db:
+    image: postgres:16
+    container_name: catalog_db_container
+    environment:
+      POSTGRES_DB: ${CATALOG_DB_NAME}
+      POSTGRES_USER: ${CATALOG_DB_USER}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD}
+    volumes:
+      - catalog_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${CATALOG_DB_USER} -d ${CATALOG_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  order_db:
+    image: postgres:16
+    container_name: order_db_container
+    environment:
+      POSTGRES_DB: ${ORDER_DB_NAME}
+      POSTGRES_USER: ${ORDER_DB_USER}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD}
+    volumes:
+      - order_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${ORDER_DB_USER} -d ${ORDER_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  auth_app:
+    build:
+      context: ./auth_app
+      dockerfile: Dockerfile
+    container_name: auth_app_container
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth_db:5432/${AUTH_DB_NAME}
+      DB_HOST: auth_db
+      DB_PORT: 5432
+      DB_NAME: ${AUTH_DB_NAME}
+      DB_USER: ${AUTH_DB_USER}
+      DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      JWT_SECRET: ${AUTH_APP_SECRET}
+      ACCESS_TTL_MIN: ${AUTH_APP_ACCESS_TTL_MIN}
+      JWT_ALGO: ${AUTH_APP_ALGO}
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+
+  catalog_app:
+    build:
+      context: ./catalog_app
+      dockerfile: Dockerfile
+    container_name: catalog_app_container
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${CATALOG_DB_USER}:${CATALOG_DB_PASSWORD}@catalog_db:5432/${CATALOG_DB_NAME}
+      DB_HOST: catalog_db
+      DB_PORT: 5432
+      DB_NAME: ${CATALOG_DB_NAME}
+      DB_USER: ${CATALOG_DB_USER}
+      DB_PASSWORD: ${CATALOG_DB_PASSWORD}
+    depends_on:
+      catalog_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+
+  order_app:
+    build:
+      context: ./order_app
+      dockerfile: Dockerfile
+    container_name: order_app_container
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${ORDER_DB_USER}:${ORDER_DB_PASSWORD}@order_db:5432/${ORDER_DB_NAME}
+      DB_HOST: order_db
+      DB_PORT: 5432
+      DB_NAME: ${ORDER_DB_NAME}
+      DB_USER: ${ORDER_DB_USER}
+      DB_PASSWORD: ${ORDER_DB_PASSWORD}
+    depends_on:
+      order_db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8003:8000"
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: ${RABBITMQ_HOST_NAME}
+    ports:
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=${RABBITMQ_ADDITIONAL_ERL}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_port_connectivity" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    restart: unless-stopped
+
+volumes:
+  auth_pgdata:
+  catalog_pgdata:
+  order_pgdata:
+  rabbitmq_data:
