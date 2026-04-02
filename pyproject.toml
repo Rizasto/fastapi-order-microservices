@@ -5,7 +5,7 @@ exclude = [
     ".git",
     ".venv",
     "__pycache__",
-    "alembic/versions",
+    "alembic",
 ]
 
 [tool.ruff.lint]
@@ -17,7 +17,9 @@ select = [
     "UP",  # pyupgrade
 ]
 ignore = [
-    "B008", # FastAPI часто использует Depends(...) в аргументах функций
+    "B008",
+    "UP032",
+    "B904"
 ]
 
 [tool.ruff.format]
@@ -27,3 +29,4 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+asyncio_mode = "auto"
