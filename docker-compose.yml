@@ -2,6 +2,10 @@ services:
   auth_db:
     image: postgres:16
     container_name: auth_db_container
+    ports:
+      - "5433:5432"
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${AUTH_DB_NAME}
       POSTGRES_USER: ${AUTH_DB_USER}
@@ -18,6 +22,8 @@ services:
   catalog_db:
     image: postgres:16
     container_name: catalog_db_container
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${CATALOG_DB_NAME}
       POSTGRES_USER: ${CATALOG_DB_USER}
@@ -34,6 +40,8 @@ services:
   order_db:
     image: postgres:16
     container_name: order_db_container
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${ORDER_DB_NAME}
       POSTGRES_USER: ${ORDER_DB_USER}
@@ -52,19 +60,26 @@ services:
       context: ./auth_app
       dockerfile: Dockerfile
     container_name: auth_app_container
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql+psycopg2://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth_db:5432/${AUTH_DB_NAME}
+      APP_NAME: ${AUTH_APP_NAME}
+      APP_HOST: ${AUTH_APP_HOST}
+      APP_PORT: ${AUTH_APP_PORT}
+      DATABASE_URL: postgresql+asyncpg://${AUTH_DB_USER}:${AUTH_DB_PASSWORD}@auth_db:5432/${AUTH_DB_NAME}
       DB_HOST: auth_db
       DB_PORT: 5432
       DB_NAME: ${AUTH_DB_NAME}
       DB_USER: ${AUTH_DB_USER}
       DB_PASSWORD: ${AUTH_DB_PASSWORD}
-      JWT_SECRET: ${AUTH_APP_SECRET}
-      ACCESS_TTL_MIN: ${AUTH_APP_ACCESS_TTL_MIN}
-      JWT_ALGO: ${AUTH_APP_ALGO}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TTL_MIN: ${JWT_ACCESS_TTL_MIN}
+      JWT_ALGO: ${JWT_ALGO}
     depends_on:
       auth_db:
         condition: service_healthy
+    volumes:
+      - ./auth_app:/auth_app
     ports:
       - "8001:8000"
     restart: unless-stopped
@@ -74,8 +89,10 @@ services:
       context: ./catalog_app
       dockerfile: Dockerfile
     container_name: catalog_app_container
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql+psycopg2://${CATALOG_DB_USER}:${CATALOG_DB_PASSWORD}@catalog_db:5432/${CATALOG_DB_NAME}
+      DATABASE_URL: postgresql+asyncpg://${CATALOG_DB_USER}:${CATALOG_DB_PASSWORD}@catalog_db:5432/${CATALOG_DB_NAME}
       DB_HOST: catalog_db
       DB_PORT: 5432
       DB_NAME: ${CATALOG_DB_NAME}
@@ -95,8 +112,10 @@ services:
       context: ./order_app
       dockerfile: Dockerfile
     container_name: order_app_container
+    env_file:
+      - .env
     environment:
-      DATABASE_URL: postgresql+psycopg2://${ORDER_DB_USER}:${ORDER_DB_PASSWORD}@order_db:5432/${ORDER_DB_NAME}
+      DATABASE_URL: postgresql+asyncpg://${ORDER_DB_USER}:${ORDER_DB_PASSWORD}@order_db:5432/${ORDER_DB_NAME}
       DB_HOST: order_db
       DB_PORT: 5432
       DB_NAME: ${ORDER_DB_NAME}
@@ -113,9 +132,11 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management
-    hostname: ${RABBITMQ_HOST_NAME}
+    hostname: ${RABBITMQ_HOST}
     ports:
       - "15672:15672"
+    env_file:
+      - .env
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
